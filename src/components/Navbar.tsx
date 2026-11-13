@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, LogIn, CalendarCheck } from "lucide-react";
+import { Menu, X, LogIn, CalendarCheck, User } from "lucide-react";
 import { Monogram, IconInstagram } from "./decor/Icons";
 import { business } from "../data/business";
 import { useClientAuthStore } from "../store/useClientAuthStore";
@@ -70,12 +70,20 @@ export function Navbar() {
             <LogIn className="h-4 w-4" /> Área da profissional
           </Link>
           {clientLoggedIn ? (
-            <Link
-              to="/conta/agendamentos"
-              className="flex items-center gap-1.5 text-sm font-medium text-ink-500 hover:text-rose-600 transition-colors"
-            >
-              <CalendarCheck className="h-4 w-4" /> Meus agendamentos
-            </Link>
+            <>
+              <Link
+                to="/conta/agendamentos"
+                className="flex items-center gap-1.5 text-sm font-medium text-ink-500 hover:text-rose-600 transition-colors"
+              >
+                <CalendarCheck className="h-4 w-4" /> Meus agendamentos
+              </Link>
+              <Link
+                to="/conta/perfil"
+                className="flex items-center gap-1.5 text-sm font-medium text-ink-500 hover:text-rose-600 transition-colors"
+              >
+                <User className="h-4 w-4" /> Meu perfil
+              </Link>
+            </>
           ) : (
             <Link
               to="/conta/entrar"
@@ -122,9 +130,14 @@ export function Navbar() {
             Área da profissional
           </Link>
           {clientLoggedIn ? (
-            <Link to="/conta/agendamentos" onClick={() => setOpen(false)} className="text-base font-medium text-ink-500">
-              Meus agendamentos
-            </Link>
+            <>
+              <Link to="/conta/agendamentos" onClick={() => setOpen(false)} className="text-base font-medium text-ink-500">
+                Meus agendamentos
+              </Link>
+              <Link to="/conta/perfil" onClick={() => setOpen(false)} className="text-base font-medium text-ink-500">
+                Meu perfil
+              </Link>
+            </>
           ) : (
             <Link to="/conta/entrar" onClick={() => setOpen(false)} className="text-base font-medium text-ink-500">
               Minha conta
