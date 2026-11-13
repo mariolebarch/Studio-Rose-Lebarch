@@ -76,7 +76,11 @@ Deno.serve(async (req) => {
       email_confirm: true,
     });
     if (createError) {
-      return json({ ok: false, error: createError.message }, 400);
+      const alreadyRegistered = /already.*registered|already.*exists/i.test(createError.message);
+      const friendlyError = alreadyRegistered
+        ? "Esse e-mail já tem uma conta no sistema (por exemplo, como cliente). Use um e-mail diferente para o login da profissional."
+        : createError.message;
+      return json({ ok: false, error: friendlyError }, 400);
     }
 
     return json({ ok: true, temporaryPassword });

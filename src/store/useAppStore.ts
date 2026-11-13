@@ -509,10 +509,19 @@ export const useAppStore = create<AppState>()((set, get) => ({
       body: { email },
     });
     if (fnError || !fnData?.ok) {
+      let detail: string | undefined = fnData?.error;
+      if (!detail && fnError && "context" in fnError) {
+        try {
+          const body = await (fnError as { context: Response }).context.json();
+          detail = body?.error;
+        } catch {
+          // mantém o fallback abaixo se o corpo do erro não vier em JSON
+        }
+      }
       return {
         ok: true,
         loginWarning:
-          fnData?.error ??
+          detail ??
           fnError?.message ??
           "Não foi possível criar o login automaticamente. Crie manualmente no Supabase (Authentication → Users).",
       };
