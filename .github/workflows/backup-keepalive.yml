@@ -1,0 +1,48 @@
+name: Backup e keep-alive do Supabase
+
+# Roda sozinho a cada 3 dias (bem antes do limite de ~7 dias de
+# inatividade que faz o projeto gratuito do Supabase pausar), e também
+# pode ser disparado manualmente em "Actions" para testar.
+on:
+  schedule:
+    - cron: "0 6 */3 * *" # 06:00 UTC, a cada 3 dias
+  workflow_dispatch: {}
+
+jobs:
+  keepalive:
+    name: Manter o projeto Supabase ativo
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+    steps:
+      - name: Faz uma leitura simples na API pública do Supabase
+        run: |
+          curl -sS -f \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            "$SUPABASE_URL/rest/v1/professionals?select=id&limit=1" \
+            -o /dev/null
+          echo "Ping concluído — o projeto continua ativo."
+
+  backup:
+    name: Backup do banco de dados
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - name: Instala as ferramentas do Postgres
+        run: sudo apt-get update -y && sudo apt-get install -y postgresql-client
+
+      - name: Gera o backup (pg_dump) e compacta
+        run: |
+          data=$(date +%Y-%m-%d)
+          pg_dump "$SUPABASE_DB_URL" --no-owner --no-privileges | gzip > "backup-$data.sql.gz"
+          echo "BACKUP_DATE=$data" >> "$GITHUB_ENV"
+
+      - name: Guarda o backup como anexo desta execução
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-supabase-${{ env.BACKUP_DATE }}
+          path: backup-*.sql.gz
+          retention-days: 35
