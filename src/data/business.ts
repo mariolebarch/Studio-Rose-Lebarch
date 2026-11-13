@@ -5,6 +5,7 @@ export const business = {
   instagramHandle: "@studioroselebarch",
   instagramUrl: "https://www.instagram.com/studioroselebarch/",
   whatsappLink: "https://bit.ly/RoselyLebarchNails",
+  whatsappPhone: "5531995233503", // usado para links com mensagem pronta (o bit.ly ignora o texto)
   address: {
     street: "Rua Quartzo, 570",
     neighborhood: "Iguaçu",

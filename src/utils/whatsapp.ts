@@ -35,14 +35,18 @@ export function buildReminderMessage(params: {
   );
 }
 
-export function whatsappLinkWithMessage(message?: string) {
-  if (!message) return business.whatsappLink;
-  return `${business.whatsappLink}?text=${encodeURIComponent(message)}`;
-}
-
 export function whatsappLinkToPhone(phone: string, message?: string) {
   const digits = phone.replace(/\D/g, "");
   return message
     ? `https://wa.me/${digits}?text=${encodeURIComponent(message)}`
     : `https://wa.me/${digits}`;
+}
+
+export function whatsappLinkWithMessage(message?: string) {
+  // O link curto (bit.ly) tem uma mensagem fixa configurada nele e ignora
+  // qualquer texto que a gente tente anexar — por isso, sempre que há uma
+  // mensagem específica (ex.: confirmação de agendamento), usamos o link
+  // direto do WhatsApp com o número do studio, sem passar pelo bit.ly.
+  if (!message) return business.whatsappLink;
+  return whatsappLinkToPhone(business.whatsappPhone, message);
 }
