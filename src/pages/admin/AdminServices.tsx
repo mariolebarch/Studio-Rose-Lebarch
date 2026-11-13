@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { Plus, Trash2, Pencil, X, Check } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { serviceCategories } from "../../data/services";
@@ -27,6 +27,7 @@ export function AdminServices() {
   const [form, setForm] = useState(() => emptyForm(scopeProfessionalId));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
 
   const scopedServices = services.filter((s) => s.professionalId === scopeProfessionalId);
 
@@ -63,6 +64,7 @@ export function AdminServices() {
       price: s.price,
     });
     setEditingId(id);
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   function cancelEdit() {
@@ -90,7 +92,13 @@ export function AdminServices() {
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-blush-200 p-6 shadow-soft space-y-4">
+      <form
+        ref={formRef}
+        onSubmit={handleSubmit}
+        className={`bg-white rounded-2xl p-6 shadow-soft space-y-4 border transition-colors ${
+          editingId ? "border-rose-400 ring-2 ring-rose-100" : "border-blush-200"
+        }`}
+      >
         <h2 className="font-display text-lg text-rose-800">{editingId ? "Editar procedimento" : "Novo procedimento"}</h2>
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
