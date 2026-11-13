@@ -8,6 +8,8 @@ export interface Professional {
   id: string;
   email: string;
   name: string;
+  whatsapp: string;
+  infiniteTag: string | null;
   role: "admin" | "staff";
   active: boolean;
 }
@@ -89,8 +91,22 @@ interface AppState {
   updateService: (id: string, patch: Partial<Service>) => Promise<ActionResult>;
   removeService: (id: string) => Promise<ActionResult>;
 
-  addProfessional: (professional: { name: string; email: string; role: "admin" | "staff" }) => Promise<ActionResult>;
-  updateProfessional: (id: string, patch: { name?: string; role?: "admin" | "staff"; active?: boolean }) => Promise<ActionResult>;
+  addProfessional: (professional: {
+    name: string;
+    email: string;
+    role: "admin" | "staff";
+    whatsapp: string;
+    infiniteTag?: string;
+  }) => Promise<ActionResult & { temporaryPassword?: string; loginWarning?: string }>;
+  updateProfessional: (
+    id: string,
+    patch: { name?: string; role?: "admin" | "staff"; active?: boolean; whatsapp?: string; infiniteTag?: string | null }
+  ) => Promise<ActionResult>;
+}
+
+function normalizeInfiniteTag(tag: string | undefined | null): string | null {
+  const trimmed = (tag ?? "").trim().replace(/^\$+/, "").trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 function slugify(text: string) {
@@ -105,7 +121,15 @@ function slugify(text: string) {
 }
 
 function mapProfessionalRow(row: any): Professional {
-  return { id: row.id, email: row.email, name: row.name, role: row.role, active: row.active };
+  return {
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    whatsapp: row.whatsapp ?? "",
+    infiniteTag: row.infinite_tag ?? null,
+    role: row.role,
+    active: row.active,
+  };
 }
 
 function mapServiceRow(row: any): Service {
@@ -460,9 +484,16 @@ export const useAppStore = create<AppState>()((set, get) => ({
   },
 
   addProfessional: async (professional) => {
+    const email = professional.email.toLowerCase().trim();
     const { data, error } = await supabase
       .from("professionals")
-      .insert({ name: professional.name, email: professional.email.toLowerCase().trim(), role: professional.role })
+      .insert({
+        name: professional.name,
+        email,
+        role: professional.role,
+        whatsapp: professional.whatsapp.trim(),
+        infinite_tag: normalizeInfiniteTag(professional.infiniteTag),
+      })
       .select()
       .single();
     if (error) return { ok: false, error: error.message };
@@ -473,11 +504,31 @@ export const useAppStore = create<AppState>()((set, get) => ({
       professionals: [...s.professionals, prof],
       businessHoursByProfessional: { ...s.businessHoursByProfessional, [prof.id]: defaultHours },
     }));
-    return { ok: true };
+
+    const { data: fnData, error: fnError } = await supabase.functions.invoke("create-professional-login", {
+      body: { email },
+    });
+    if (fnError || !fnData?.ok) {
+      return {
+        ok: true,
+        loginWarning:
+          fnData?.error ??
+          fnError?.message ??
+          "Não foi possível criar o login automaticamente. Crie manualmente no Supabase (Authentication → Users).",
+      };
+    }
+    return { ok: true, temporaryPassword: fnData.temporaryPassword as string };
   },
 
   updateProfessional: async (id, patch) => {
-    const { data, error } = await supabase.from("professionals").update(patch).eq("id", id).select().single();
+    const payload: Record<string, unknown> = {};
+    if (patch.name !== undefined) payload.name = patch.name;
+    if (patch.role !== undefined) payload.role = patch.role;
+    if (patch.active !== undefined) payload.active = patch.active;
+    if (patch.whatsapp !== undefined) payload.whatsapp = patch.whatsapp.trim();
+    if (patch.infiniteTag !== undefined) payload.infinite_tag = normalizeInfiniteTag(patch.infiniteTag);
+
+    const { data, error } = await supabase.from("professionals").update(payload).eq("id", id).select().single();
     if (error) return { ok: false, error: error.message };
     const prof = mapProfessionalRow(data);
     set((s) => ({ professionals: s.professionals.map((p) => (p.id === id ? prof : p)) }));

@@ -15,14 +15,15 @@ O projeto Supabase já usado se chama **"Salão - Rosely"**. Para conectar:
    (`professionals`, `services`, `professional_hours`, `blocked_dates`,
    `blocked_ranges`, `appointments`), as regras de segurança (RLS) e os
    serviços padrão da Rose.
-2. **Crie as contas das profissionais.** Em **Authentication → Users → Add
-   user**, crie um usuário para cada uma (marque "Auto Confirm User"),
-   usando o mesmo e-mail cadastrado na tabela `professionals`
+2. **Crie as contas das duas profissionais iniciais.** Em **Authentication →
+   Users → Add user**, crie um usuário para cada uma (marque "Auto Confirm
+   User"), usando o mesmo e-mail cadastrado na tabela `professionals`
    (`roselebarch@gmail.com` para a Rose, administradora; `bete@gmail.com`
    para a Bete). É esse e-mail/senha que cada uma vai usar para entrar em
-   `/login`. Novas profissionais podem ser adicionadas depois pela própria
-   Rose, em **Profissionais** dentro do painel admin (mas o login delas
-   ainda precisa ser criado aqui, manualmente).
+   `/login`. Novas profissionais cadastradas depois pela Rose em
+   **Profissionais** (painel admin) já têm o login criado automaticamente
+   pela Edge Function `create-professional-login` (veja "Edge Functions"
+   abaixo) — não precisa repetir este passo manual para elas.
 3. **Configure as variáveis de ambiente.** Em **Project Settings → API**,
    copie a **Project URL** e a chave **anon public**, e crie um arquivo
    `.env` na raiz do projeto (baseado em `.env.example`):
@@ -80,9 +81,27 @@ Cada profissional tem seu próprio catálogo de serviços, horário de
 funcionamento, bloqueios e agenda — totalmente independentes entre si. A
 Rose (papel `admin`) enxerga e gerencia tudo, inclusive a agenda das
 outras; as demais profissionais só veem o que é delas. Só a administradora
-tem acesso a **Configurações → Profissionais** e à opção de adicionar
-novas profissionais pelo painel (o login de acesso de cada uma, porém,
-ainda precisa ser criado manualmente no Supabase, como no passo 2 acima).
+tem acesso a **Profissionais**, onde pode adicionar, editar e
+ativar/desativar profissionais — o login de acesso de cada nova
+profissional já é criado automaticamente (veja "Edge Functions" abaixo).
+
+## Edge Functions
+
+O projeto usa uma Edge Function do Supabase (`create-professional-login`)
+para criar, com segurança, o login de uma profissional recém-cadastrada
+pelo painel admin — essa é a única parte do sistema que roda código no
+servidor (tudo o resto é um site estático). Ela é publicada automaticamente
+pelo workflow `.github/workflows/deploy-functions.yml` sempre que algo
+muda em `supabase/functions/`, usando dois valores do repositório:
+
+- Secret `SUPABASE_ACCESS_TOKEN`: um token pessoal gerado em
+  [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens).
+- Variable `SUPABASE_PROJECT_REF`: a referência do projeto (o trecho antes
+  de `.supabase.co` na Project URL).
+
+A função em si usa `SUPABASE_URL`, `SUPABASE_ANON_KEY` e
+`SUPABASE_SERVICE_ROLE_KEY`, que o Supabase já injeta automaticamente em
+toda Edge Function — não precisa configurar isso à parte.
 
 ## Adicionando as fotos reais do Instagram
 

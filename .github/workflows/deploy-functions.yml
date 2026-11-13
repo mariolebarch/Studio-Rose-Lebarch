@@ -1,0 +1,29 @@
+name: Publica as Edge Functions do Supabase
+
+# Publica automaticamente quando algo muda em supabase/functions, ou
+# manualmente em "Actions".
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/**"
+  workflow_dispatch: {}
+
+jobs:
+  deploy-functions:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    steps:
+      - name: Baixa o código
+        uses: actions/checkout@v4
+
+      - name: Instala a CLI do Supabase
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Publica a função create-professional-login
+        run: supabase functions deploy create-professional-login --project-ref "$SUPABASE_PROJECT_REF"
+        env:
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
