@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { UserPlus, ShieldCheck, User, Info, Pencil, X, Check, Copy } from "lucide-react";
+import { UserPlus, ShieldCheck, User, Info, Pencil, X, Check, Copy, Trash2 } from "lucide-react";
 import { useAppStore, type Professional } from "../../store/useAppStore";
 import { formatPhoneBR, isValidPhoneBR } from "../../utils/phone";
 
@@ -9,6 +9,7 @@ export function AdminProfessionals() {
   const professionals = useAppStore((s) => s.professionals);
   const addProfessional = useAppStore((s) => s.addProfessional);
   const updateProfessional = useAppStore((s) => s.updateProfessional);
+  const removeProfessional = useAppStore((s) => s.removeProfessional);
 
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState("");
@@ -16,6 +17,8 @@ export function AdminProfessionals() {
   const [generatedPassword, setGeneratedPassword] = useState<{ name: string; password: string } | null>(null);
   const [loginWarning, setLoginWarning] = useState("");
   const [copied, setCopied] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState("");
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ name: "", whatsapp: "", infiniteTag: "", role: "staff" as "admin" | "staff" });
@@ -96,6 +99,22 @@ export function AdminProfessionals() {
     setEditingId(null);
   }
 
+  async function handleDelete(p: Professional) {
+    if (
+      !window.confirm(
+        `Tem certeza que deseja excluir ${p.name}? Os serviços, horários e bloqueios dela também serão apagados. Isso não pode ser desfeito.`
+      )
+    )
+      return;
+    setDeleteError("");
+    setDeletingId(p.id);
+    const result = await removeProfessional(p.id);
+    setDeletingId(null);
+    if (!result.ok) {
+      setDeleteError(result.error ?? "Não foi possível excluir a profissional.");
+    }
+  }
+
   function copyPassword() {
     if (!generatedPassword) return;
     navigator.clipboard?.writeText(generatedPassword.password).then(() => {
@@ -142,6 +161,10 @@ export function AdminProfessionals() {
           <p className="font-semibold mb-1">Profissional cadastrada, mas o login não foi criado automaticamente</p>
           <p>{loginWarning}</p>
         </div>
+      )}
+
+      {deleteError && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-5 text-sm text-red-700">{deleteError}</div>
       )}
 
       <div className="bg-white rounded-2xl border border-blush-200 shadow-soft divide-y divide-blush-100">
@@ -249,6 +272,14 @@ export function AdminProfessionals() {
                     aria-label="Editar profissional"
                   >
                     <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(p)}
+                    disabled={deletingId === p.id}
+                    className="p-1.5 rounded-lg text-ink-500 hover:text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    aria-label="Excluir profissional"
+                  >
+                    <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
               </div>

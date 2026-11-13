@@ -102,6 +102,7 @@ interface AppState {
     id: string,
     patch: { name?: string; role?: "admin" | "staff"; active?: boolean; whatsapp?: string; infiniteTag?: string | null }
   ) => Promise<ActionResult>;
+  removeProfessional: (id: string) => Promise<ActionResult>;
 }
 
 function normalizeInfiniteTag(tag: string | undefined | null): string | null {
@@ -541,6 +542,44 @@ export const useAppStore = create<AppState>()((set, get) => ({
     if (error) return { ok: false, error: error.message };
     const prof = mapProfessionalRow(data);
     set((s) => ({ professionals: s.professionals.map((p) => (p.id === id ? prof : p)) }));
+    return { ok: true };
+  },
+
+  removeProfessional: async (id) => {
+    if (id === get().currentProfessional?.id) {
+      return { ok: false, error: "Você não pode excluir sua própria conta enquanto estiver logada." };
+    }
+
+    // Remove primeiro os dados próprios da profissional (serviços, horário,
+    // bloqueios) — os agendamentos ficam de fora de propósito: se ela tiver
+    // histórico, o banco recusa a exclusão da profissional (chave
+    // estrangeira) e pedimos para desativar em vez de excluir.
+    await supabase.from("services").delete().eq("professional_id", id);
+    await supabase.from("professional_hours").delete().eq("professional_id", id);
+    await supabase.from("blocked_dates").delete().eq("professional_id", id);
+    await supabase.from("blocked_ranges").delete().eq("professional_id", id);
+
+    const { error } = await supabase.from("professionals").delete().eq("id", id);
+    if (error) {
+      const hasHistory = /foreign key|violates/i.test(error.message);
+      return {
+        ok: false,
+        error: hasHistory
+          ? "Não é possível excluir: esta profissional já tem agendamentos no histórico. Desative-a em vez de excluir, para manter o histórico preservado."
+          : error.message,
+      };
+    }
+    set((s) => {
+      const businessHoursByProfessional = { ...s.businessHoursByProfessional };
+      delete businessHoursByProfessional[id];
+      return {
+        professionals: s.professionals.filter((p) => p.id !== id),
+        services: s.services.filter((sv) => sv.professionalId !== id),
+        blockedDates: s.blockedDates.filter((b) => b.professionalId !== id),
+        blockedRanges: s.blockedRanges.filter((r) => r.professionalId !== id),
+        businessHoursByProfessional,
+      };
+    });
     return { ok: true };
   },
 }));
