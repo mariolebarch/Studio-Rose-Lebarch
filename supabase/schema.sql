@@ -60,9 +60,23 @@ create table if not exists blocked_ranges (
   constraint blocked_ranges_time_order check (start_time < end_time)
 );
 
+-- Contas de clientes (login + perfil). auth_user_id fica nulo para
+-- clientes cadastradas manualmente pela administradora, sem login próprio.
+create table if not exists clients (
+  id uuid primary key default gen_random_uuid(),
+  auth_user_id uuid unique references auth.users(id) on delete set null,
+  name text not null,
+  whatsapp text not null,
+  email text,
+  active boolean not null default true,
+  deletion_requested_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists appointments (
   id uuid primary key default gen_random_uuid(),
   professional_id uuid not null references professionals(id),
+  client_id uuid references clients(id),
   service_ids text[] not null,
   date date not null,
   start_time text not null,
@@ -87,6 +101,7 @@ alter table professional_hours enable row level security;
 alter table blocked_dates enable row level security;
 alter table blocked_ranges enable row level security;
 alter table appointments enable row level security;
+alter table clients enable row level security;
 
 -- Leitura pública (o site precisa mostrar profissionais, serviços,
 -- horários e bloqueios para calcular a agenda disponível)
@@ -147,30 +162,62 @@ create policy "blocked_ranges_admin_write" on blocked_ranges for all
     or professional_id = (select id from professionals where lower(email) = lower(auth.jwt() ->> 'email'))
   );
 
--- Agendamentos: qualquer visitante pode criar (agendar), mas só a
--- profissional dona do agendamento (ou a administradora) pode ver/editar/cancelar
-create policy "appointments_public_insert" on appointments for insert with check (true);
+-- Agendamentos: só pode criar quem está logada (cliente dona do
+-- agendamento) ou uma profissional/administradora (agendamento manual).
+-- Leitura/edição: a mesma profissional/admin, ou a cliente dona do agendamento.
+create policy "appointments_insert" on appointments for insert
+  with check (
+    exists (select 1 from professionals p where lower(p.email) = lower(auth.jwt() ->> 'email') and p.role = 'admin')
+    or professional_id = (select id from professionals where lower(email) = lower(auth.jwt() ->> 'email'))
+    or client_id = (select id from clients where auth_user_id = auth.uid())
+  );
 
 create policy "appointments_read" on appointments for select
   using (
     exists (select 1 from professionals p where lower(p.email) = lower(auth.jwt() ->> 'email') and p.role = 'admin')
     or professional_id = (select id from professionals where lower(email) = lower(auth.jwt() ->> 'email'))
+    or client_id = (select id from clients where auth_user_id = auth.uid())
   );
 
 create policy "appointments_update" on appointments for update
   using (
     exists (select 1 from professionals p where lower(p.email) = lower(auth.jwt() ->> 'email') and p.role = 'admin')
     or professional_id = (select id from professionals where lower(email) = lower(auth.jwt() ->> 'email'))
+    or client_id = (select id from clients where auth_user_id = auth.uid())
   )
   with check (
     exists (select 1 from professionals p where lower(p.email) = lower(auth.jwt() ->> 'email') and p.role = 'admin')
     or professional_id = (select id from professionals where lower(email) = lower(auth.jwt() ->> 'email'))
+    or client_id = (select id from clients where auth_user_id = auth.uid())
   );
 
 create policy "appointments_delete" on appointments for delete
   using (
     exists (select 1 from professionals p where lower(p.email) = lower(auth.jwt() ->> 'email') and p.role = 'admin')
     or professional_id = (select id from professionals where lower(email) = lower(auth.jwt() ->> 'email'))
+  );
+
+-- Clientes: cada uma só vê/edita a própria conta; a administradora vê e edita todas.
+create policy "clients_self_read" on clients for select
+  using (
+    auth_user_id = auth.uid()
+    or exists (select 1 from professionals p where lower(p.email) = lower(auth.jwt() ->> 'email') and p.role = 'admin')
+  );
+
+create policy "clients_self_insert" on clients for insert
+  with check (
+    auth_user_id = auth.uid()
+    or exists (select 1 from professionals p where lower(p.email) = lower(auth.jwt() ->> 'email') and p.role = 'admin')
+  );
+
+create policy "clients_self_update" on clients for update
+  using (
+    auth_user_id = auth.uid()
+    or exists (select 1 from professionals p where lower(p.email) = lower(auth.jwt() ->> 'email') and p.role = 'admin')
+  )
+  with check (
+    auth_user_id = auth.uid()
+    or exists (select 1 from professionals p where lower(p.email) = lower(auth.jwt() ->> 'email') and p.role = 'admin')
   );
 
 -- ==========================================================
