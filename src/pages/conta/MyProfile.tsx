@@ -4,6 +4,7 @@ import { User, Phone, Mail, LogOut, Trash2 } from "lucide-react";
 import { Navbar } from "../../components/Navbar";
 import { Footer } from "../../components/Footer";
 import { useClientAuthStore } from "../../store/useClientAuthStore";
+import { formatPhoneBR, isValidPhoneBR } from "../../utils/phone";
 
 export function MyProfile() {
   const navigate = useNavigate();
@@ -14,7 +15,7 @@ export function MyProfile() {
   const signOut = useClientAuthStore((s) => s.signOut);
 
   const [name, setName] = useState(profile?.name ?? "");
-  const [whatsapp, setWhatsapp] = useState(profile?.whatsapp ?? "");
+  const [whatsapp, setWhatsapp] = useState(formatPhoneBR(profile?.whatsapp ?? ""));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -83,7 +84,9 @@ export function MyProfile() {
                   <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-500/60" />
                   <input
                     value={whatsapp}
-                    onChange={(e) => setWhatsapp(e.target.value)}
+                    onChange={(e) => setWhatsapp(formatPhoneBR(e.target.value))}
+                    placeholder="(31) 99509-3346"
+                    inputMode="numeric"
                     className="w-full rounded-xl border border-blush-300 pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
                     required
                   />
@@ -106,7 +109,7 @@ export function MyProfile() {
 
               <button
                 type="submit"
-                disabled={saving || name.trim().length < 2 || whatsapp.trim().length < 8}
+                disabled={saving || name.trim().length < 2 || !isValidPhoneBR(whatsapp)}
                 className="w-full rounded-full bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-semibold py-2.5 text-sm transition-colors"
               >
                 {saving ? "Salvando..." : "Salvar alterações"}

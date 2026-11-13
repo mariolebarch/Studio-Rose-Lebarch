@@ -9,6 +9,7 @@ import { TimeSlotGrid } from "../components/booking/TimeSlotGrid";
 import { useAppStore } from "../store/useAppStore";
 import { useClientAuthStore } from "../store/useClientAuthStore";
 import { serviceCategories } from "../data/services";
+import { formatPhoneBR, isValidPhoneBR } from "../utils/phone";
 import { IconHand, IconFoot, IconSparkleGlyph, IconCombo, IconExtra } from "../components/decor/Icons";
 import { formatDateBR } from "../utils/slots";
 import { buildWhatsAppMessage, whatsappLinkWithMessage } from "../utils/whatsapp";
@@ -41,7 +42,7 @@ export function Booking() {
   const [date, setDate] = useState<string | null>(null);
   const [time, setTime] = useState<string | null>(null);
   const [clientName, setClientName] = useState(clientProfile?.name ?? "");
-  const [clientPhone, setClientPhone] = useState(clientProfile?.whatsapp ?? "");
+  const [clientPhone, setClientPhone] = useState(formatPhoneBR(clientProfile?.whatsapp ?? ""));
   const [notes, setNotes] = useState("");
   const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -86,7 +87,7 @@ export function Booking() {
     setDate(null);
     setTime(null);
     setClientName(clientProfile?.name ?? "");
-    setClientPhone(clientProfile?.whatsapp ?? "");
+    setClientPhone(formatPhoneBR(clientProfile?.whatsapp ?? ""));
     setNotes("");
     setDone(false);
   }
@@ -110,7 +111,7 @@ export function Booking() {
     if (step === 1) return selectedServiceIds.length > 0;
     if (step === 2) return !!date;
     if (step === 3) return !!time;
-    if (step === 4) return clientName.trim().length > 1 && clientPhone.trim().length >= 8;
+    if (step === 4) return clientName.trim().length > 1 && isValidPhoneBR(clientPhone);
     return true;
   }
 
@@ -379,8 +380,9 @@ export function Booking() {
                       <label className="block text-sm font-medium text-ink-700 mb-1.5">WhatsApp</label>
                       <input
                         value={clientPhone}
-                        onChange={(e) => setClientPhone(e.target.value)}
-                        placeholder="(11) 91234-5678"
+                        onChange={(e) => setClientPhone(formatPhoneBR(e.target.value))}
+                        placeholder="(31) 99509-3346"
+                        inputMode="numeric"
                         className="w-full rounded-xl border border-blush-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
                       />
                     </div>

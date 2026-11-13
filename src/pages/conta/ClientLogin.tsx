@@ -71,10 +71,10 @@ export function ClientLogin() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blush-100 via-cream-100 to-blush-200 px-6 py-16 relative">
+    <div className="min-h-screen flex items-center justify-center bg-rose-600 px-6 py-16 relative">
       <Link
         to="/"
-        className="absolute top-6 left-6 inline-flex items-center gap-1.5 text-sm font-medium text-ink-500 hover:text-rose-600 transition-colors"
+        className="absolute top-6 left-6 inline-flex items-center gap-1.5 text-sm font-medium text-cream-50 hover:text-white transition-colors"
       >
         <ArrowLeft className="h-4 w-4" /> Voltar ao site
       </Link>

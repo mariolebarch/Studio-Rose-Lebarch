@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { User, Phone } from "lucide-react";
 import { useClientAuthStore } from "../../store/useClientAuthStore";
+import { formatPhoneBR, isValidPhoneBR } from "../../utils/phone";
 
 export function CompleteProfile() {
   const navigate = useNavigate();
@@ -39,7 +40,7 @@ export function CompleteProfile() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blush-100 via-cream-100 to-blush-200 px-6 py-16">
+    <div className="min-h-screen flex items-center justify-center bg-rose-600 px-6 py-16">
       <div className="w-full max-w-sm bg-white rounded-3xl shadow-soft border border-blush-200 p-8">
         <div className="text-center">
           <h1 className="font-display text-2xl text-rose-900">Complete seu cadastro</h1>
@@ -69,8 +70,9 @@ export function CompleteProfile() {
               <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-500/60" />
               <input
                 value={whatsapp}
-                onChange={(e) => setWhatsapp(e.target.value)}
-                placeholder="(11) 91234-5678"
+                onChange={(e) => setWhatsapp(formatPhoneBR(e.target.value))}
+                placeholder="(31) 99509-3346"
+                inputMode="numeric"
                 className="w-full rounded-xl border border-blush-300 pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
                 required
               />
@@ -81,7 +83,7 @@ export function CompleteProfile() {
 
           <button
             type="submit"
-            disabled={loading || name.trim().length < 2 || whatsapp.trim().length < 8}
+            disabled={loading || name.trim().length < 2 || !isValidPhoneBR(whatsapp)}
             className="w-full rounded-full bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-semibold py-2.5 text-sm transition-colors"
           >
             {loading ? "Salvando..." : "Concluir cadastro"}
