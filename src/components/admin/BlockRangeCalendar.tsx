@@ -3,11 +3,10 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { isPastDate, toDateInputValue } from "../../utils/slots";
 import { weekdayShort } from "../../data/business";
 
-interface BlockRangeCalendarProps {
+interface BlockDaysCalendarProps {
   blockedSet: Set<string>;
-  rangeStart: string | null;
-  rangeEnd: string | null;
-  onRangeChange: (start: string, end: string) => void;
+  selectedDays: Set<string>;
+  onToggleDay: (date: string) => void;
 }
 
 const MONTH_NAMES = [
@@ -15,7 +14,7 @@ const MONTH_NAMES = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
-export function BlockRangeCalendar({ blockedSet, rangeStart, rangeEnd, onRangeChange }: BlockRangeCalendarProps) {
+export function BlockRangeCalendar({ blockedSet, selectedDays, onToggleDay }: BlockDaysCalendarProps) {
   const today = useMemo(() => new Date(), []);
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
@@ -43,20 +42,6 @@ export function BlockRangeCalendar({ blockedSet, rangeStart, rangeEnd, onRangeCh
     const d = new Date(viewYear, viewMonth + 1, 1);
     setViewYear(d.getFullYear());
     setViewMonth(d.getMonth());
-  }
-
-  function handlePick(date: string) {
-    if (!rangeStart || (rangeStart && rangeEnd)) {
-      // Começa uma seleção nova.
-      onRangeChange(date, date);
-      return;
-    }
-    // Já tem início escolhido: define o fim (ou reinicia se clicar antes do início).
-    if (date < rangeStart) {
-      onRangeChange(date, rangeStart);
-    } else {
-      onRangeChange(rangeStart, date);
-    }
   }
 
   return (
@@ -96,8 +81,7 @@ export function BlockRangeCalendar({ blockedSet, rangeStart, rangeEnd, onRangeCh
           const past = isPastDate(date);
           const alreadyBlocked = blockedSet.has(date);
           const disabled = past || alreadyBlocked;
-          const inRange = !!rangeStart && !!rangeEnd && date >= rangeStart && date <= rangeEnd;
-          const isEdge = date === rangeStart || date === rangeEnd;
+          const isSelected = selectedDays.has(date);
           const dayNum = Number(date.split("-")[2]);
 
           return (
@@ -105,12 +89,11 @@ export function BlockRangeCalendar({ blockedSet, rangeStart, rangeEnd, onRangeCh
               key={date}
               type="button"
               disabled={disabled}
-              onClick={() => handlePick(date)}
+              onClick={() => onToggleDay(date)}
               title={alreadyBlocked ? "Já bloqueado" : undefined}
               className={`aspect-square rounded-lg text-sm font-medium transition-colors flex items-center justify-center
-                ${isEdge ? "bg-rose-600 text-white" : ""}
-                ${inRange && !isEdge ? "bg-blush-200 text-rose-800" : ""}
-                ${!inRange && !disabled ? "hover:bg-blush-100 text-ink-900" : ""}
+                ${isSelected ? "bg-rose-600 text-white" : ""}
+                ${!isSelected && !disabled ? "hover:bg-blush-100 text-ink-900" : ""}
                 ${disabled ? "text-ink-500/30 cursor-not-allowed line-through decoration-1" : ""}
               `}
             >

@@ -19,8 +19,7 @@ export function AdminBlocking() {
 
   const today = toDateInputValue(new Date());
 
-  const [dayRangeStart, setDayRangeStart] = useState<string | null>(today);
-  const [dayRangeEnd, setDayRangeEnd] = useState<string | null>(today);
+  const [selectedDays, setSelectedDays] = useState<Set<string>>(new Set());
   const [dateReason, setDateReason] = useState("");
   const [dateError, setDateError] = useState("");
   const [blockingDays, setBlockingDays] = useState(false);
@@ -35,30 +34,23 @@ export function AdminBlocking() {
   const scopedRanges = blockedRanges.filter((r) => r.professionalId === scopeProfessionalId);
   const scopedBlockedSet = useMemo(() => new Set(scopedDates.map((b) => b.date)), [scopedDates]);
 
-  const daysSelectedCount = useMemo(() => {
-    if (!dayRangeStart || !dayRangeEnd) return 0;
-    const start = new Date(dayRangeStart + "T00:00:00");
-    const end = new Date(dayRangeEnd + "T00:00:00");
-    return Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
-  }, [dayRangeStart, dayRangeEnd]);
+  function toggleDay(date: string) {
+    setSelectedDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
+  }
+
+  const sortedSelectedDays = useMemo(() => [...selectedDays].sort(), [selectedDays]);
 
   async function handleBlockDate(e: FormEvent) {
     e.preventDefault();
     setDateError("");
-    if (!dayRangeStart || !dayRangeEnd) {
-      setDateError("Selecione ao menos um dia no calendário.");
-      return;
-    }
-    const datesToBlock: string[] = [];
-    const cursor = new Date(dayRangeStart + "T00:00:00");
-    const end = new Date(dayRangeEnd + "T00:00:00");
-    while (cursor <= end) {
-      const d = toDateInputValue(cursor);
-      if (!scopedDates.some((b) => b.date === d)) datesToBlock.push(d);
-      cursor.setDate(cursor.getDate() + 1);
-    }
+    const datesToBlock = sortedSelectedDays.filter((d) => !scopedDates.some((b) => b.date === d));
     if (datesToBlock.length === 0) {
-      setDateError("Esses dias já estão bloqueados.");
+      setDateError("Selecione ao menos um dia no calendário.");
       return;
     }
     setBlockingDays(true);
@@ -72,8 +64,7 @@ export function AdminBlocking() {
     }
     setBlockingDays(false);
     setDateReason("");
-    setDayRangeStart(null);
-    setDayRangeEnd(null);
+    setSelectedDays(new Set());
   }
 
   async function handleBlockRange(e: FormEvent) {
@@ -133,28 +124,17 @@ export function AdminBlocking() {
 
           <form onSubmit={handleBlockDate} className="space-y-3">
             <p className="text-xs text-ink-500">
-              Clique num dia para começar e em outro dia para marcar o fim do período (ou clique só uma vez
-              para bloquear um único dia).
+              Clique em quantos dias quiser (não precisam ser seguidos) e depois bloqueie todos de uma vez.
             </p>
             <BlockRangeCalendar
               blockedSet={scopedBlockedSet}
-              rangeStart={dayRangeStart}
-              rangeEnd={dayRangeEnd}
-              onRangeChange={(start, end) => {
-                setDayRangeStart(start);
-                setDayRangeEnd(end);
-              }}
+              selectedDays={selectedDays}
+              onToggleDay={toggleDay}
             />
-            {daysSelectedCount > 0 && dayRangeStart && dayRangeEnd && (
+            {sortedSelectedDays.length > 0 && (
               <p className="text-sm text-ink-700">
-                {dayRangeStart === dayRangeEnd ? (
-                  <>Vai bloquear <strong>{formatDateBR(dayRangeStart)}</strong></>
-                ) : (
-                  <>
-                    Vai bloquear de <strong>{formatDateBR(dayRangeStart)}</strong> até{" "}
-                    <strong>{formatDateBR(dayRangeEnd)}</strong> ({daysSelectedCount} dias)
-                  </>
-                )}
+                Vai bloquear {sortedSelectedDays.length === 1 ? "o dia" : `${sortedSelectedDays.length} dias`}:{" "}
+                <strong>{sortedSelectedDays.map((d) => formatDateBR(d)).join(", ")}</strong>
               </p>
             )}
             <div>
@@ -169,14 +149,14 @@ export function AdminBlocking() {
             {dateError && <p className="text-xs text-red-600">{dateError}</p>}
             <button
               type="submit"
-              disabled={blockingDays || !dayRangeStart || !dayRangeEnd}
+              disabled={blockingDays || sortedSelectedDays.length === 0}
               className="inline-flex items-center gap-2 rounded-full bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 transition-colors"
             >
               <Ban className="h-4 w-4" />{" "}
               {blockingDays
                 ? "Bloqueando..."
-                : daysSelectedCount > 1
-                  ? `Bloquear ${daysSelectedCount} dias`
+                : sortedSelectedDays.length > 1
+                  ? `Bloquear ${sortedSelectedDays.length} dias`
                   : "Bloquear dia"}
             </button>
           </form>
