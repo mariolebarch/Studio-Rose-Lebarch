@@ -24,6 +24,6 @@ jobs:
           version: latest
 
       - name: Publica a função create-professional-login
-        run: supabase functions deploy create-professional-login --project-ref "$SUPABASE_PROJECT_REF"
+        run: supabase functions deploy create-professional-login --project-ref "$SUPABASE_PROJECT_REF" --yes
         env:
           SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
