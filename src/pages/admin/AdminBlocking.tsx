@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { Ban, Clock3, Trash2, CalendarOff } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { formatDateBR, toDateInputValue } from "../../utils/slots";
+import { BlockRangeCalendar } from "../../components/admin/BlockRangeCalendar";
 
 export function AdminBlocking() {
   const blockedDates = useAppStore((s) => s.blockedDates);
@@ -18,29 +19,61 @@ export function AdminBlocking() {
 
   const today = toDateInputValue(new Date());
 
-  const [dateToBlock, setDateToBlock] = useState(today);
+  const [dayRangeStart, setDayRangeStart] = useState<string | null>(today);
+  const [dayRangeEnd, setDayRangeEnd] = useState<string | null>(today);
   const [dateReason, setDateReason] = useState("");
+  const [dateError, setDateError] = useState("");
+  const [blockingDays, setBlockingDays] = useState(false);
 
   const [rangeDate, setRangeDate] = useState(today);
   const [rangeStart, setRangeStart] = useState("12:00");
   const [rangeEnd, setRangeEnd] = useState("13:00");
   const [rangeReason, setRangeReason] = useState("");
   const [rangeError, setRangeError] = useState("");
-  const [dateError, setDateError] = useState("");
 
   const scopedDates = blockedDates.filter((b) => b.professionalId === scopeProfessionalId);
   const scopedRanges = blockedRanges.filter((r) => r.professionalId === scopeProfessionalId);
+  const scopedBlockedSet = useMemo(() => new Set(scopedDates.map((b) => b.date)), [scopedDates]);
+
+  const daysSelectedCount = useMemo(() => {
+    if (!dayRangeStart || !dayRangeEnd) return 0;
+    const start = new Date(dayRangeStart + "T00:00:00");
+    const end = new Date(dayRangeEnd + "T00:00:00");
+    return Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+  }, [dayRangeStart, dayRangeEnd]);
 
   async function handleBlockDate(e: FormEvent) {
     e.preventDefault();
     setDateError("");
-    if (scopedDates.some((b) => b.date === dateToBlock)) return;
-    const result = await addBlockedDate(scopeProfessionalId, dateToBlock, dateReason.trim() || undefined);
-    if (!result.ok) {
-      setDateError("Não foi possível bloquear a data. Tente novamente.");
+    if (!dayRangeStart || !dayRangeEnd) {
+      setDateError("Selecione ao menos um dia no calendário.");
       return;
     }
+    const datesToBlock: string[] = [];
+    const cursor = new Date(dayRangeStart + "T00:00:00");
+    const end = new Date(dayRangeEnd + "T00:00:00");
+    while (cursor <= end) {
+      const d = toDateInputValue(cursor);
+      if (!scopedDates.some((b) => b.date === d)) datesToBlock.push(d);
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    if (datesToBlock.length === 0) {
+      setDateError("Esses dias já estão bloqueados.");
+      return;
+    }
+    setBlockingDays(true);
+    for (const d of datesToBlock) {
+      const result = await addBlockedDate(scopeProfessionalId, d, dateReason.trim() || undefined);
+      if (!result.ok) {
+        setDateError(`Não foi possível bloquear ${formatDateBR(d)}. Tente novamente.`);
+        setBlockingDays(false);
+        return;
+      }
+    }
+    setBlockingDays(false);
     setDateReason("");
+    setDayRangeStart(null);
+    setDayRangeEnd(null);
   }
 
   async function handleBlockRange(e: FormEvent) {
@@ -99,17 +132,31 @@ export function AdminBlocking() {
           </div>
 
           <form onSubmit={handleBlockDate} className="space-y-3">
-            <div>
-              <label className="block text-xs font-medium text-ink-500 mb-1">Data</label>
-              <input
-                type="date"
-                required
-                min={today}
-                value={dateToBlock}
-                onChange={(e) => setDateToBlock(e.target.value)}
-                className="w-full rounded-lg border border-blush-300 px-3 py-2 text-sm"
-              />
-            </div>
+            <p className="text-xs text-ink-500">
+              Clique num dia para começar e em outro dia para marcar o fim do período (ou clique só uma vez
+              para bloquear um único dia).
+            </p>
+            <BlockRangeCalendar
+              blockedSet={scopedBlockedSet}
+              rangeStart={dayRangeStart}
+              rangeEnd={dayRangeEnd}
+              onRangeChange={(start, end) => {
+                setDayRangeStart(start);
+                setDayRangeEnd(end);
+              }}
+            />
+            {daysSelectedCount > 0 && dayRangeStart && dayRangeEnd && (
+              <p className="text-sm text-ink-700">
+                {dayRangeStart === dayRangeEnd ? (
+                  <>Vai bloquear <strong>{formatDateBR(dayRangeStart)}</strong></>
+                ) : (
+                  <>
+                    Vai bloquear de <strong>{formatDateBR(dayRangeStart)}</strong> até{" "}
+                    <strong>{formatDateBR(dayRangeEnd)}</strong> ({daysSelectedCount} dias)
+                  </>
+                )}
+              </p>
+            )}
             <div>
               <label className="block text-xs font-medium text-ink-500 mb-1">Motivo (opcional)</label>
               <input
@@ -122,9 +169,15 @@ export function AdminBlocking() {
             {dateError && <p className="text-xs text-red-600">{dateError}</p>}
             <button
               type="submit"
-              className="inline-flex items-center gap-2 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold px-5 py-2.5 transition-colors"
+              disabled={blockingDays || !dayRangeStart || !dayRangeEnd}
+              className="inline-flex items-center gap-2 rounded-full bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 transition-colors"
             >
-              <Ban className="h-4 w-4" /> Bloquear data
+              <Ban className="h-4 w-4" />{" "}
+              {blockingDays
+                ? "Bloqueando..."
+                : daysSelectedCount > 1
+                  ? `Bloquear ${daysSelectedCount} dias`
+                  : "Bloquear dia"}
             </button>
           </form>
 
