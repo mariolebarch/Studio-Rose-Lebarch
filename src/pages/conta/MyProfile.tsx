@@ -57,11 +57,11 @@ export function MyProfile() {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
-      <main className="flex-1 bg-cream-100 pt-28 pb-20">
+      <main className="flex-1 bg-rose-600 pt-28 pb-20">
         <div className="mx-auto max-w-md px-6 sm:px-8">
           <div className="mb-8">
-            <span className="text-xs font-semibold tracking-widest uppercase text-rose-600">Minha conta</span>
-            <h1 className="mt-2 font-display text-3xl text-rose-900">Meu perfil</h1>
+            <span className="text-xs font-semibold tracking-widest uppercase text-cream-50">Minha conta</span>
+            <h1 className="mt-2 font-display text-3xl text-white">Meu perfil</h1>
           </div>
 
           <div className="bg-white rounded-3xl shadow-soft border border-blush-200 p-6 sm:p-8">
@@ -117,7 +117,7 @@ export function MyProfile() {
             </form>
           </div>
 
-          <div className="mt-6 flex flex-col gap-3">
+          <div className="mt-6 bg-white rounded-3xl shadow-soft border border-blush-200 p-6 sm:p-8 flex flex-col gap-3">
             <button
               onClick={handleSignOut}
               className="inline-flex items-center justify-center gap-2 rounded-full border border-blush-300 hover:border-rose-400 text-ink-700 font-medium py-2.5 text-sm transition-colors"
