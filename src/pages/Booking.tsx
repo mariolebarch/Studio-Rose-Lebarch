@@ -47,6 +47,16 @@ export function Booking() {
   const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  // Congela os dados do agendamento confirmado: evita que a tela de sucesso
+  // e a mensagem do WhatsApp fiquem vazias caso os dados "ao vivo" (serviços,
+  // profissional selecionados) mudem por qualquer motivo depois da confirmação.
+  const [confirmedBooking, setConfirmedBooking] = useState<{
+    serviceNamesLabel: string;
+    professionalName: string;
+    date: string;
+    startTime: string;
+    clientName: string;
+  } | null>(null);
 
   const professionalServices = useMemo(
     () => services.filter((s) => s.professionalId === professionalId),
@@ -90,6 +100,7 @@ export function Booking() {
     setClientPhone(formatPhoneBR(clientProfile?.whatsapp ?? ""));
     setNotes("");
     setDone(false);
+    setConfirmedBooking(null);
   }
 
   function chooseProfessional(id: string) {
@@ -137,6 +148,13 @@ export function Booking() {
     });
     setSubmitting(false);
     if (result.ok) {
+      setConfirmedBooking({
+        serviceNamesLabel,
+        professionalName: selectedProfessional?.name ?? "",
+        date,
+        startTime: time,
+        clientName: clientName.trim(),
+      });
       setDone(true);
     } else {
       setSubmitError(
@@ -147,8 +165,13 @@ export function Booking() {
     }
   }
 
-  const whatsappMessage = selectedServices.length > 0 && date && time
-    ? buildWhatsAppMessage({ serviceNames: selectedServices.map((s) => s.name), date, startTime: time, clientName: clientName || "" })
+  const whatsappMessage = confirmedBooking
+    ? buildWhatsAppMessage({
+        serviceNames: confirmedBooking.serviceNamesLabel.split(" + "),
+        date: confirmedBooking.date,
+        startTime: confirmedBooking.startTime,
+        clientName: confirmedBooking.clientName,
+      })
     : "";
 
   return (
@@ -167,17 +190,18 @@ export function Booking() {
           {!done && <StepIndicator steps={STEPS} current={step} />}
 
           <div className="bg-white rounded-3xl shadow-soft border border-blush-200 p-6 sm:p-10">
-            {done ? (
+            {done && confirmedBooking ? (
               <div className="text-center py-6 animate-fade-up">
                 <div className="mx-auto h-16 w-16 rounded-full bg-rose-100 flex items-center justify-center text-rose-600 mb-5">
                   <CalendarCheck className="h-8 w-8" />
                 </div>
                 <h2 className="font-display text-2xl text-rose-900">Pré-agendamento realizado!</h2>
                 <p className="mt-2 text-ink-500 max-w-md mx-auto text-sm leading-relaxed">
-                  Seu horário para <strong>{serviceNamesLabel}</strong> com{" "}
-                  <strong>{selectedProfessional?.name}</strong> em{" "}
-                  <strong>{date && formatDateBR(date)}</strong> às <strong>{time}</strong> foi reservado.
-                  Confirme pelo WhatsApp para garantir seu atendimento.
+                  Seu horário para <strong>{confirmedBooking.serviceNamesLabel}</strong> com{" "}
+                  <strong>{confirmedBooking.professionalName}</strong> em{" "}
+                  <strong>{formatDateBR(confirmedBooking.date)}</strong> às{" "}
+                  <strong>{confirmedBooking.startTime}</strong> foi reservado. Confirme pelo WhatsApp para
+                  garantir seu atendimento.
                 </p>
                 <div className="mt-7 flex flex-col sm:flex-row gap-3 justify-center">
                   <a
