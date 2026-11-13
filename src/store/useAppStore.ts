@@ -61,7 +61,6 @@ interface AppState {
   loading: boolean;
   ready: boolean;
   loadError: string | null;
-  authError: string | null;
   isAdminAuthenticated: boolean;
 
   init: () => Promise<void>;
@@ -72,7 +71,7 @@ interface AppState {
   changePassword: (newPassword: string) => Promise<ActionResult>;
 
   addAppointment: (
-    a: Omit<Appointment, "id" | "createdAt" | "status">
+    a: Omit<Appointment, "id" | "createdAt" | "status"> & { clientId?: string }
   ) => Promise<ActionResult & { appointment?: Appointment }>;
   cancelAppointment: (id: string) => Promise<ActionResult>;
   deleteAppointment: (id: string) => Promise<ActionResult>;
@@ -220,7 +219,6 @@ export const useAppStore = create<AppState>()((set, get) => ({
   loading: false,
   ready: false,
   loadError: null,
-  authError: null,
   isAdminAuthenticated: false,
 
   init: async () => {
@@ -237,28 +235,17 @@ export const useAppStore = create<AppState>()((set, get) => ({
     const professionals = get().professionals;
     const currentProfessional = session ? findProfessionalByEmail(professionals, session.user.email) : null;
 
-    if (session && !currentProfessional) {
-      await supabase.auth.signOut();
-      set({
-        isAdminAuthenticated: false,
-        currentProfessional: null,
-        isAdmin: false,
-        authError: "Sua conta não está associada a nenhuma profissional cadastrada. Fale com a administradora.",
-        loading: false,
-        ready: true,
-      });
-      return;
-    }
-
+    // Uma sessão sem profissional correspondente não é um erro: pode ser
+    // uma cliente logada (área /conta), que é tratada por outro store.
     set({
-      isAdminAuthenticated: !!session,
+      isAdminAuthenticated: !!currentProfessional,
       currentProfessional,
       isAdmin: currentProfessional?.role === "admin",
       loading: false,
       ready: true,
     });
 
-    if (session && currentProfessional) {
+    if (currentProfessional) {
       get().fetchAppointments();
     }
 
@@ -269,13 +256,9 @@ export const useAppStore = create<AppState>()((set, get) => ({
       }
       const prof = findProfessionalByEmail(get().professionals, newSession.user.email);
       if (!prof) {
-        await supabase.auth.signOut();
-        set({
-          isAdminAuthenticated: false,
-          currentProfessional: null,
-          isAdmin: false,
-          authError: "Sua conta não está associada a nenhuma profissional cadastrada. Fale com a administradora.",
-        });
+        // Sessão de uma cliente (ou conta sem papel nenhum) — não mexe
+        // no estado da área administrativa.
+        set({ isAdminAuthenticated: false, currentProfessional: null, isAdmin: false, appointments: [] });
         return;
       }
       set({ isAdminAuthenticated: true, currentProfessional: prof, isAdmin: prof.role === "admin" });
@@ -291,7 +274,6 @@ export const useAppStore = create<AppState>()((set, get) => ({
   },
 
   login: async (email, password) => {
-    set({ authError: null });
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { ok: false, error: error.message };
 
@@ -340,24 +322,19 @@ export const useAppStore = create<AppState>()((set, get) => ({
       end_time: a.endTime,
       client_name: a.clientName,
       client_phone: a.clientPhone,
+      client_id: a.clientId ?? null,
       notes: a.notes ?? null,
     };
 
-    // Uma cliente anônima agendando não tem permissão para reler o próprio
-    // agendamento (RLS só libera leitura para a profissional dona dele ou
-    // a administradora) — então só pede o registro de volta quando quem
-    // está criando já está autenticada (agendamento manual pelo admin).
-    if (get().isAdminAuthenticated) {
-      const { data, error } = await supabase.from("appointments").insert(payload).select().single();
-      if (error) return { ok: false, error: error.message };
-      const appointment = mapAppointmentRow(data);
-      set((s) => ({ appointments: [...s.appointments, appointment] }));
-      return { ok: true, appointment };
-    }
-
-    const { error } = await supabase.from("appointments").insert(payload);
+    // Agendamentos agora exigem login (cliente dona ou profissional/admin
+    // criando manualmente) — em ambos os casos a RLS libera a releitura.
+    const { data, error } = await supabase.from("appointments").insert(payload).select().single();
     if (error) return { ok: false, error: error.message };
-    return { ok: true };
+    const appointment = mapAppointmentRow(data);
+    if (get().isAdminAuthenticated) {
+      set((s) => ({ appointments: [...s.appointments, appointment] }));
+    }
+    return { ok: true, appointment };
   },
 
   cancelAppointment: async (id) => {

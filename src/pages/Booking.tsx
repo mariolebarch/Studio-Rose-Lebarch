@@ -7,6 +7,7 @@ import { StepIndicator } from "../components/booking/StepIndicator";
 import { CalendarPicker } from "../components/booking/CalendarPicker";
 import { TimeSlotGrid } from "../components/booking/TimeSlotGrid";
 import { useAppStore } from "../store/useAppStore";
+import { useClientAuthStore } from "../store/useClientAuthStore";
 import { serviceCategories } from "../data/services";
 import { IconHand, IconFoot, IconSparkleGlyph, IconCombo, IconExtra } from "../components/decor/Icons";
 import { formatDateBR } from "../utils/slots";
@@ -30,6 +31,7 @@ export function Booking() {
   const loadingData = useAppStore((s) => s.loading);
   const loadError = useAppStore((s) => s.loadError);
   const reloadData = useAppStore((s) => s.reloadData);
+  const clientProfile = useClientAuthStore((s) => s.profile);
 
   const activeProfessionals = useMemo(() => professionals.filter((p) => p.active), [professionals]);
 
@@ -38,8 +40,8 @@ export function Booking() {
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [date, setDate] = useState<string | null>(null);
   const [time, setTime] = useState<string | null>(null);
-  const [clientName, setClientName] = useState("");
-  const [clientPhone, setClientPhone] = useState("");
+  const [clientName, setClientName] = useState(clientProfile?.name ?? "");
+  const [clientPhone, setClientPhone] = useState(clientProfile?.whatsapp ?? "");
   const [notes, setNotes] = useState("");
   const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -83,8 +85,8 @@ export function Booking() {
     setSelectedServiceIds([]);
     setDate(null);
     setTime(null);
-    setClientName("");
-    setClientPhone("");
+    setClientName(clientProfile?.name ?? "");
+    setClientPhone(clientProfile?.whatsapp ?? "");
     setNotes("");
     setDone(false);
   }
@@ -129,6 +131,7 @@ export function Booking() {
       endTime,
       clientName: clientName.trim(),
       clientPhone: clientPhone.trim(),
+      clientId: clientProfile?.id,
       notes: notes.trim() || undefined,
     });
     setSubmitting(false);
@@ -191,6 +194,12 @@ export function Booking() {
                     Novo agendamento
                   </button>
                 </div>
+                <Link
+                  to="/conta/agendamentos"
+                  className="mt-4 inline-block text-sm text-ink-500 hover:text-rose-600 transition-colors"
+                >
+                  Ver meus agendamentos
+                </Link>
               </div>
             ) : (
               <>

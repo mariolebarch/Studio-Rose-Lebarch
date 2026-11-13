@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, LogIn } from "lucide-react";
+import { Menu, X, LogIn, CalendarCheck } from "lucide-react";
 import { Monogram, IconInstagram } from "./decor/Icons";
 import { business } from "../data/business";
+import { useClientAuthStore } from "../store/useClientAuthStore";
 
 const navLinks = [
   { href: "#sobre", label: "Sobre" },
@@ -16,6 +17,7 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
   const onHome = location.pathname === "/";
+  const clientLoggedIn = useClientAuthStore((s) => s.isAuthenticated && !s.needsProfile);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -67,6 +69,21 @@ export function Navbar() {
           >
             <LogIn className="h-4 w-4" /> Área da profissional
           </Link>
+          {clientLoggedIn ? (
+            <Link
+              to="/conta/agendamentos"
+              className="flex items-center gap-1.5 text-sm font-medium text-ink-500 hover:text-rose-600 transition-colors"
+            >
+              <CalendarCheck className="h-4 w-4" /> Meus agendamentos
+            </Link>
+          ) : (
+            <Link
+              to="/conta/entrar"
+              className="flex items-center gap-1.5 text-sm font-medium text-ink-500 hover:text-rose-600 transition-colors"
+            >
+              <LogIn className="h-4 w-4" /> Minha conta
+            </Link>
+          )}
           <Link
             to="/agendar"
             className="rounded-full bg-rose-600 hover:bg-rose-700 text-cream-50 text-sm font-semibold px-5 py-2.5 shadow-soft transition-colors"
@@ -104,6 +121,15 @@ export function Navbar() {
           <Link to="/login" onClick={() => setOpen(false)} className="text-base font-medium text-ink-500">
             Área da profissional
           </Link>
+          {clientLoggedIn ? (
+            <Link to="/conta/agendamentos" onClick={() => setOpen(false)} className="text-base font-medium text-ink-500">
+              Meus agendamentos
+            </Link>
+          ) : (
+            <Link to="/conta/entrar" onClick={() => setOpen(false)} className="text-base font-medium text-ink-500">
+              Minha conta
+            </Link>
+          )}
           <Link
             to="/agendar"
             onClick={() => setOpen(false)}
