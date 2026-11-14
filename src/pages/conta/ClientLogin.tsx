@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, Globe } from "lucide-react";
 import { useClientAuthStore } from "../../store/useClientAuthStore";
+import { TurnstileWidget } from "../../components/TurnstileWidget";
 
 export function ClientLogin() {
   const navigate = useNavigate();
@@ -29,11 +30,15 @@ export function ClientLogin() {
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 
   function switchMode(m: "entrar" | "cadastrar") {
     setMode(m);
     setError("");
     setInfo("");
+    setCaptchaToken(null);
+    setTurnstileResetKey((k) => k + 1);
   }
 
   async function handleGoogle() {
@@ -46,12 +51,21 @@ export function ClientLogin() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!captchaToken) {
+      setError("Confirme a verificação de segurança antes de continuar.");
+      return;
+    }
     setError("");
     setInfo("");
     setLoading(true);
     const result =
-      mode === "entrar" ? await signInWithEmail(email, password) : await signUpWithEmail(email, password);
+      mode === "entrar"
+        ? await signInWithEmail(email, password, captchaToken)
+        : await signUpWithEmail(email, password, captchaToken);
     setLoading(false);
+    // O token do Turnstile só vale uma vez — pede um novo pra próxima tentativa.
+    setCaptchaToken(null);
+    setTurnstileResetKey((k) => k + 1);
     if (!result.ok) {
       const msg = result.error ?? "";
       if (mode === "entrar" && msg.toLowerCase().includes("invalid login credentials")) {
@@ -164,12 +178,14 @@ export function ClientLogin() {
             {mode === "cadastrar" && <p className="mt-1.5 text-xs text-ink-500">Mínimo de 6 caracteres.</p>}
           </div>
 
+          <TurnstileWidget onToken={setCaptchaToken} resetKey={`${mode}-${turnstileResetKey}`} />
+
           {error && <p className="text-xs text-red-600">{error}</p>}
           {info && <p className="text-xs text-green-700">{info}</p>}
 
           <button
             type="submit"
-            disabled={loading || !password || !email}
+            disabled={loading || !password || !email || !captchaToken}
             className="w-full rounded-full bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-semibold py-2.5 text-sm transition-colors"
           >
             {loading ? "Aguarde..." : mode === "entrar" ? "Entrar" : "Criar conta"}

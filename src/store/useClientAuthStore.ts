@@ -29,8 +29,8 @@ interface ClientAuthState {
 
   init: () => Promise<void>;
   signInWithGoogle: () => Promise<ActionResult>;
-  signUpWithEmail: (email: string, password: string) => Promise<ActionResult>;
-  signInWithEmail: (email: string, password: string) => Promise<ActionResult>;
+  signUpWithEmail: (email: string, password: string, captchaToken?: string) => Promise<ActionResult>;
+  signInWithEmail: (email: string, password: string, captchaToken?: string) => Promise<ActionResult>;
   signOut: () => Promise<void>;
   completeProfile: (name: string, whatsapp: string) => Promise<ActionResult>;
   updateProfile: (patch: { name?: string; whatsapp?: string }) => Promise<ActionResult>;
@@ -125,14 +125,22 @@ export const useClientAuthStore = create<ClientAuthState>()((set, get) => {
       return { ok: true };
     },
 
-    signUpWithEmail: async (email, password) => {
-      const { error } = await supabase.auth.signUp({ email: email.trim(), password });
+    signUpWithEmail: async (email, password, captchaToken) => {
+      const { error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: captchaToken ? { captchaToken } : undefined,
+      });
       if (error) return { ok: false, error: error.message };
       return { ok: true };
     },
 
-    signInWithEmail: async (email, password) => {
-      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    signInWithEmail: async (email, password, captchaToken) => {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+        options: captchaToken ? { captchaToken } : undefined,
+      });
       if (error) return { ok: false, error: error.message };
       return { ok: true };
     },
