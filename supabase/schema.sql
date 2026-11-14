@@ -181,16 +181,35 @@ create policy "appointments_read" on appointments for select
     or client_id = (select id from clients where auth_user_id = auth.uid())
   );
 
-create policy "appointments_update" on appointments for update
+-- Profissional/administradora: acesso total de edição. A cliente dona do
+-- agendamento só pode marcá-lo como "cancelado" — nenhum outro campo pode
+-- mudar numa atualização feita por ela (ver migration_006 para o motivo).
+create policy "appointments_update_staff" on appointments for update
   using (
     exists (select 1 from professionals p where lower(p.email) = lower(auth.jwt() ->> 'email') and p.role = 'admin')
     or professional_id = (select id from professionals where lower(email) = lower(auth.jwt() ->> 'email'))
-    or client_id = (select id from clients where auth_user_id = auth.uid())
   )
   with check (
     exists (select 1 from professionals p where lower(p.email) = lower(auth.jwt() ->> 'email') and p.role = 'admin')
     or professional_id = (select id from professionals where lower(email) = lower(auth.jwt() ->> 'email'))
-    or client_id = (select id from clients where auth_user_id = auth.uid())
+  );
+
+create policy "appointments_update_client_cancel" on appointments for update
+  using (
+    client_id = (select id from clients where auth_user_id = auth.uid())
+  )
+  with check (
+    client_id = (select id from clients where auth_user_id = auth.uid())
+    and status = 'cancelado'
+    and professional_id = (select a2.professional_id from appointments a2 where a2.id = appointments.id)
+    and service_ids = (select a2.service_ids from appointments a2 where a2.id = appointments.id)
+    and date = (select a2.date from appointments a2 where a2.id = appointments.id)
+    and start_time = (select a2.start_time from appointments a2 where a2.id = appointments.id)
+    and end_time = (select a2.end_time from appointments a2 where a2.id = appointments.id)
+    and client_name = (select a2.client_name from appointments a2 where a2.id = appointments.id)
+    and client_phone = (select a2.client_phone from appointments a2 where a2.id = appointments.id)
+    and client_id = (select a2.client_id from appointments a2 where a2.id = appointments.id)
+    and coalesce(notes, '') = (select coalesce(a2.notes, '') from appointments a2 where a2.id = appointments.id)
   );
 
 create policy "appointments_delete" on appointments for delete
