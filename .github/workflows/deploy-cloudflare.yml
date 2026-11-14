@@ -30,9 +30,17 @@ jobs:
       - name: Gera o build de produção
         run: npx vite build
 
+      - name: Cria o projeto no Cloudflare Pages (se ainda não existir)
+        uses: cloudflare/wrangler-action@v3
+        continue-on-error: true
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages project create studio-rosely-lebarch --production-branch=main
+
       - name: Publica no Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=studio-rosely-lebarch
+          command: pages deploy dist --project-name=studio-rosely-lebarch --commit-dirty=true
