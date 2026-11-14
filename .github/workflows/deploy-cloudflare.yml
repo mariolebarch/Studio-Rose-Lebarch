@@ -1,0 +1,39 @@
+name: Publica o site no Cloudflare Pages
+
+# Publica automaticamente sempre que algo for enviado para a branch main,
+# e também pode ser disparado manualmente em "Actions". Roda em paralelo
+# ao GitHub Pages — os dois endereços ficam no ar ao mesmo tempo.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+    steps:
+      - name: Baixa o código
+        uses: actions/checkout@v4
+
+      - name: Configura o Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instala as dependências
+        run: npm ci
+
+      - name: Gera o build de produção
+        run: npx vite build
+
+      - name: Publica no Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: studio-rosely-lebarch
+          directory: dist
