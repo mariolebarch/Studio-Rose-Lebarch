@@ -31,9 +31,8 @@ jobs:
         run: npx vite build
 
       - name: Publica no Cloudflare Pages
-        uses: cloudflare/pages-action@v1
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: studio-rosely-lebarch
-          directory: dist
+          command: pages deploy dist --project-name=studio-rosely-lebarch
