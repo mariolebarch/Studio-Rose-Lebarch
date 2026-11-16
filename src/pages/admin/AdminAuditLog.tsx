@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ClipboardList, UserCog, CalendarClock } from "lucide-react";
+import { ClipboardList, UserCog, CalendarClock, Download } from "lucide-react";
 import { useAppStore, type AuditLogEntry } from "../../store/useAppStore";
 
 const actionLabels: Record<AuditLogEntry["action"], string> = {
@@ -60,6 +60,30 @@ function summarize(entry: AuditLogEntry) {
   return [];
 }
 
+function csvField(value: string) {
+  const escaped = value.replace(/"/g, '""');
+  return `"${escaped}"`;
+}
+
+function exportCsv(entries: AuditLogEntry[]) {
+  const header = ["Data/hora", "Quem", "Ação", "Tipo", "Resumo"];
+  const rows = entries.map((entry) => [
+    new Date(entry.createdAt).toLocaleString("pt-BR"),
+    entry.actorEmail ?? "Sistema",
+    actionLabels[entry.action],
+    entityLabels[entry.entityType] ?? entry.entityType,
+    summarize(entry).join(" | "),
+  ]);
+  const csv = [header, ...rows].map((row) => row.map(csvField).join(",")).join("\r\n");
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `auditoria-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 export function AdminAuditLog() {
   const auditLog = useAppStore((s) => s.auditLog);
   const fetchAuditLog = useAppStore((s) => s.fetchAuditLog);
@@ -83,15 +107,24 @@ export function AdminAuditLog() {
             Quem alterou o quê e quando, em agendamentos e profissionais.
           </p>
         </div>
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value as typeof filter)}
-          className="rounded-lg border border-blush-300 px-3 py-2 text-sm"
-        >
-          <option value="all">Tudo</option>
-          <option value="appointments">Só agendamentos</option>
-          <option value="professionals">Só profissionais</option>
-        </select>
+        <div className="flex items-center gap-3">
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as typeof filter)}
+            className="rounded-lg border border-blush-300 px-3 py-2 text-sm"
+          >
+            <option value="all">Tudo</option>
+            <option value="appointments">Só agendamentos</option>
+            <option value="professionals">Só profissionais</option>
+          </select>
+          <button
+            onClick={() => exportCsv(filtered)}
+            disabled={filtered.length === 0}
+            className="inline-flex items-center gap-2 rounded-full border border-blush-300 hover:border-rose-400 disabled:opacity-50 text-ink-700 text-sm font-medium px-4 py-2 transition-colors"
+          >
+            <Download className="h-4 w-4" /> Exportar CSV
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-blush-200 shadow-soft divide-y divide-blush-100">
