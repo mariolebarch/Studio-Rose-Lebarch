@@ -12,6 +12,7 @@ import {
   X,
   Users,
   ClipboardList,
+  ShieldAlert,
 } from "lucide-react";
 import { Monogram } from "../../components/decor/Icons";
 import { useAppStore } from "../../store/useAppStore";
@@ -21,6 +22,7 @@ export function AdminLayout() {
   const logout = useAppStore((s) => s.logout);
   const currentProfessional = useAppStore((s) => s.currentProfessional);
   const isAdmin = useAppStore((s) => s.isAdmin);
+  const mfaEnrolled = useAppStore((s) => s.mfaEnrolled);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navItems = [
@@ -84,6 +86,15 @@ export function AdminLayout() {
           <div className="w-5" />
         </header>
         <main className="p-5 sm:p-8 max-w-6xl mx-auto">
+          {isAdmin && !mfaEnrolled && (
+            <Link
+              to="/admin/configuracoes"
+              className="mb-6 flex items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 hover:bg-amber-100 transition-colors"
+            >
+              <ShieldAlert className="h-4 w-4 shrink-0" />
+              Sua conta ainda não tem verificação em duas etapas (2FA) ativada. Recomendamos ativar em Configurações.
+            </Link>
+          )}
           <Outlet />
         </main>
       </div>

@@ -76,10 +76,23 @@ interface AppState {
   loadError: string | null;
   isAdminAuthenticated: boolean;
 
+  // Login em duas etapas quando a conta tem 2FA (TOTP) ativado.
+  mfaPending: boolean;
+  mfaFactorId: string | null;
+  mfaChallengeId: string | null;
+  pendingProfessional: Professional | null;
+  mfaEnrolled: boolean;
+
   init: () => Promise<void>;
   reloadData: () => Promise<void>;
 
-  login: (email: string, password: string, captchaToken?: string) => Promise<ActionResult>;
+  login: (email: string, password: string, captchaToken?: string) => Promise<ActionResult & { mfaRequired?: boolean }>;
+  verifyMfaLogin: (code: string) => Promise<ActionResult>;
+  cancelMfaLogin: () => Promise<void>;
+  startMfaEnrollment: () => Promise<ActionResult & { qrCode?: string; secret?: string; factorId?: string }>;
+  confirmMfaEnrollment: (factorId: string, code: string) => Promise<ActionResult>;
+  unenrollMfa: (factorId: string) => Promise<ActionResult>;
+  refreshMfaStatus: () => Promise<void>;
   logout: () => Promise<void>;
   changePassword: (newPassword: string) => Promise<ActionResult>;
 
@@ -271,6 +284,11 @@ export const useAppStore = create<AppState>()((set, get) => ({
   ready: false,
   loadError: null,
   isAdminAuthenticated: false,
+  mfaPending: false,
+  mfaFactorId: null,
+  mfaChallengeId: null,
+  pendingProfessional: null,
+  mfaEnrolled: false,
 
   init: async () => {
     if (get().ready) return;
@@ -298,6 +316,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
 
     if (currentProfessional) {
       get().fetchAppointments();
+      get().refreshMfaStatus();
     }
 
     supabase.auth.onAuthStateChange(async (_event: string, newSession: { user: { email?: string } } | null) => {
@@ -312,8 +331,16 @@ export const useAppStore = create<AppState>()((set, get) => ({
         set({ isAdminAuthenticated: false, currentProfessional: null, isAdmin: false, appointments: [] });
         return;
       }
+      // Se a conta tem 2FA ativado e esta sessão ainda não passou pela
+      // verificação do código, não libera o acesso — fica pendente até
+      // verifyMfaLogin confirmar.
+      const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aalData && aalData.nextLevel === "aal2" && aalData.currentLevel !== "aal2") {
+        return;
+      }
       set({ isAdminAuthenticated: true, currentProfessional: prof, isAdmin: prof.role === "admin" });
       get().fetchAppointments();
+      get().refreshMfaStatus();
     });
   },
 
@@ -356,14 +383,107 @@ export const useAppStore = create<AppState>()((set, get) => ({
       await supabase.auth.signOut();
       return { ok: false, error: "Este acesso foi desativado. Fale com a administradora." };
     }
+
+    const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aalData && aalData.nextLevel === "aal2" && aalData.currentLevel !== "aal2") {
+      const { data: factorsData } = await supabase.auth.mfa.listFactors();
+      const factor = factorsData?.totp?.find((f) => f.status === "verified");
+      if (!factor) {
+        await supabase.auth.signOut();
+        return { ok: false, error: "Não foi possível confirmar a verificação em duas etapas desta conta." };
+      }
+      const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
+        factorId: factor.id,
+      });
+      if (challengeError) {
+        await supabase.auth.signOut();
+        return { ok: false, error: challengeError.message };
+      }
+      set({ mfaPending: true, mfaFactorId: factor.id, mfaChallengeId: challengeData.id, pendingProfessional: prof });
+      return { ok: true, mfaRequired: true };
+    }
+
     set({ isAdminAuthenticated: true, currentProfessional: prof, isAdmin: prof.role === "admin" });
+    await get().fetchAppointments();
+    get().refreshMfaStatus();
+    return { ok: true };
+  },
+
+  verifyMfaLogin: async (code) => {
+    const { mfaFactorId, mfaChallengeId, pendingProfessional } = get();
+    if (!mfaFactorId || !mfaChallengeId || !pendingProfessional) {
+      return { ok: false, error: "Sessão de verificação expirada. Faça login novamente." };
+    }
+    const { error } = await supabase.auth.mfa.verify({
+      factorId: mfaFactorId,
+      challengeId: mfaChallengeId,
+      code,
+    });
+    if (error) return { ok: false, error: "Código inválido. Tente novamente." };
+    set({
+      isAdminAuthenticated: true,
+      currentProfessional: pendingProfessional,
+      isAdmin: pendingProfessional.role === "admin",
+      mfaPending: false,
+      mfaFactorId: null,
+      mfaChallengeId: null,
+      pendingProfessional: null,
+      mfaEnrolled: true,
+    });
     await get().fetchAppointments();
     return { ok: true };
   },
 
+  cancelMfaLogin: async () => {
+    await supabase.auth.signOut();
+    set({ mfaPending: false, mfaFactorId: null, mfaChallengeId: null, pendingProfessional: null });
+  },
+
+  startMfaEnrollment: async () => {
+    const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp" });
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, qrCode: data.totp.qr_code, secret: data.totp.secret, factorId: data.id };
+  },
+
+  confirmMfaEnrollment: async (factorId, code) => {
+    const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({ factorId });
+    if (challengeError) return { ok: false, error: challengeError.message };
+    const { error: verifyError } = await supabase.auth.mfa.verify({
+      factorId,
+      challengeId: challengeData.id,
+      code,
+    });
+    if (verifyError) return { ok: false, error: "Código inválido. Verifique o app autenticador e tente novamente." };
+    set({ mfaEnrolled: true });
+    return { ok: true };
+  },
+
+  unenrollMfa: async (factorId) => {
+    const { error } = await supabase.auth.mfa.unenroll({ factorId });
+    if (error) return { ok: false, error: error.message };
+    set({ mfaEnrolled: false });
+    return { ok: true };
+  },
+
+  refreshMfaStatus: async () => {
+    const { data, error } = await supabase.auth.mfa.listFactors();
+    if (error) return;
+    const enrolled = (data?.totp ?? []).some((f) => f.status === "verified");
+    set({ mfaEnrolled: enrolled });
+  },
+
   logout: async () => {
     await supabase.auth.signOut();
-    set({ isAdminAuthenticated: false, currentProfessional: null, isAdmin: false, appointments: [] });
+    set({
+      isAdminAuthenticated: false,
+      currentProfessional: null,
+      isAdmin: false,
+      appointments: [],
+      mfaPending: false,
+      mfaFactorId: null,
+      mfaChallengeId: null,
+      pendingProfessional: null,
+    });
   },
 
   changePassword: async (newPassword) => {

@@ -1,12 +1,15 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Lock, Mail, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { Lock, Mail, Eye, EyeOff, ArrowLeft, ShieldCheck } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import { TurnstileWidget } from "../components/TurnstileWidget";
 
 export function Login() {
   const navigate = useNavigate();
   const login = useAppStore((s) => s.login);
+  const verifyMfaLogin = useAppStore((s) => s.verifyMfaLogin);
+  const cancelMfaLogin = useAppStore((s) => s.cancelMfaLogin);
+  const mfaPending = useAppStore((s) => s.mfaPending);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -14,6 +17,7 @@ export function Login() {
   const [loading, setLoading] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const [mfaCode, setMfaCode] = useState("");
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -27,6 +31,9 @@ export function Login() {
     setLoading(false);
     setCaptchaToken(null);
     setTurnstileResetKey((k) => k + 1);
+    if (result.ok && result.mfaRequired) {
+      return;
+    }
     if (result.ok) {
       navigate("/admin");
     } else if (result.error && !result.error.toLowerCase().includes("invalid login credentials")) {
@@ -34,6 +41,78 @@ export function Login() {
     } else {
       setError("E-mail ou senha incorretos. Tente novamente.");
     }
+  }
+
+  async function handleVerifyMfa(e: FormEvent) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    const result = await verifyMfaLogin(mfaCode.trim());
+    setLoading(false);
+    if (result.ok) {
+      navigate("/admin");
+    } else {
+      setError(result.error ?? "Código inválido. Tente novamente.");
+      setMfaCode("");
+    }
+  }
+
+  async function handleCancelMfa() {
+    setLoading(true);
+    await cancelMfaLogin();
+    setLoading(false);
+    setMfaCode("");
+    setError("");
+  }
+
+  if (mfaPending) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blush-100 via-cream-100 to-blush-200 px-6 py-16 relative">
+        <div className="w-full max-w-sm bg-white rounded-3xl shadow-soft border border-blush-200 p-8">
+          <div className="flex flex-col items-center text-center">
+            <div className="h-14 w-14 rounded-full bg-blush-100 flex items-center justify-center text-rose-600">
+              <ShieldCheck className="h-6 w-6" />
+            </div>
+            <h1 className="mt-4 font-display text-2xl text-rose-900">Verificação em duas etapas</h1>
+            <p className="mt-1 text-sm text-ink-500">
+              Digite o código de 6 dígitos do seu aplicativo autenticador.
+            </p>
+          </div>
+
+          <form onSubmit={handleVerifyMfa} className="mt-8 space-y-4">
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              value={mfaCode}
+              onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="000000"
+              autoFocus
+              required
+              className="w-full rounded-xl border border-blush-300 px-4 py-2.5 text-center text-lg tracking-[0.3em] font-mono focus:outline-none focus:ring-2 focus:ring-rose-400"
+            />
+
+            {error && <p className="text-xs text-red-600">{error}</p>}
+
+            <button
+              type="submit"
+              disabled={loading || mfaCode.length !== 6}
+              className="w-full rounded-full bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-semibold py-2.5 text-sm transition-colors"
+            >
+              {loading ? "Verificando..." : "Confirmar"}
+            </button>
+            <button
+              type="button"
+              onClick={handleCancelMfa}
+              disabled={loading}
+              className="w-full text-center text-xs text-ink-500 hover:text-rose-600 transition-colors"
+            >
+              Cancelar e voltar ao login
+            </button>
+          </form>
+        </div>
+      </div>
+    );
   }
 
   return (
