@@ -11,6 +11,7 @@ import {
   Menu,
   X,
   Users,
+  ClipboardList,
 } from "lucide-react";
 import { Monogram } from "../../components/decor/Icons";
 import { useAppStore } from "../../store/useAppStore";
@@ -29,7 +30,12 @@ export function AdminLayout() {
     { to: "/admin/servicos", label: "Serviços", icon: Sparkles },
     { to: "/admin/horarios", label: "Horário de funcionamento", icon: Clock },
     { to: "/admin/configuracoes", label: "Configurações", icon: Settings },
-    ...(isAdmin ? [{ to: "/admin/profissionais", label: "Profissionais", icon: Users }] : []),
+    ...(isAdmin
+      ? [
+          { to: "/admin/profissionais", label: "Profissionais", icon: Users },
+          { to: "/admin/auditoria", label: "Auditoria", icon: ClipboardList },
+        ]
+      : []),
   ];
 
   async function handleLogout() {

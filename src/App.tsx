@@ -17,6 +17,7 @@ import { AdminServices } from "./pages/admin/AdminServices";
 import { AdminHours } from "./pages/admin/AdminHours";
 import { AdminSettings } from "./pages/admin/AdminSettings";
 import { AdminProfessionals } from "./pages/admin/AdminProfessionals";
+import { AdminAuditLog } from "./pages/admin/AdminAuditLog";
 import { useAppStore } from "./store/useAppStore";
 import { useClientAuthStore } from "./store/useClientAuthStore";
 import { Monogram } from "./components/decor/Icons";
@@ -88,6 +89,14 @@ function App() {
             element={
               <AdminOnlyRoute>
                 <AdminProfessionals />
+              </AdminOnlyRoute>
+            }
+          />
+          <Route
+            path="auditoria"
+            element={
+              <AdminOnlyRoute>
+                <AdminAuditLog />
               </AdminOnlyRoute>
             }
           />

@@ -44,6 +44,16 @@ export interface BlockedRange {
   reason?: string;
 }
 
+export interface AuditLogEntry {
+  id: string;
+  actorEmail: string | null;
+  action: "insert" | "update" | "delete";
+  entityType: string;
+  entityId: string;
+  changes: Record<string, unknown> | null;
+  createdAt: string;
+}
+
 interface ActionResult {
   ok: boolean;
   error?: string;
@@ -59,6 +69,7 @@ interface AppState {
   blockedDates: BlockedDate[];
   blockedRanges: BlockedRange[];
   appointments: Appointment[]; // populada apenas quando autenticada (respeitando RLS por profissional)
+  auditLog: AuditLogEntry[]; // só a administradora consegue ler (RLS)
 
   loading: boolean;
   ready: boolean;
@@ -103,6 +114,8 @@ interface AppState {
     patch: { name?: string; role?: "admin" | "staff"; active?: boolean; whatsapp?: string; infiniteTag?: string | null }
   ) => Promise<ActionResult>;
   removeProfessional: (id: string) => Promise<ActionResult>;
+
+  fetchAuditLog: () => Promise<void>;
 }
 
 function normalizeInfiniteTag(tag: string | undefined | null): string | null {
@@ -177,6 +190,18 @@ function mapBlockedRangeRow(row: any): BlockedRange {
   };
 }
 
+function mapAuditLogRow(row: any): AuditLogEntry {
+  return {
+    id: row.id,
+    actorEmail: row.actor_email ?? null,
+    action: row.action,
+    entityType: row.entity_type,
+    entityId: row.entity_id,
+    changes: row.changes ?? null,
+    createdAt: row.created_at,
+  };
+}
+
 function findProfessionalByEmail(professionals: Professional[], email?: string | null): Professional | null {
   if (!email) return null;
   const lower = email.toLowerCase();
@@ -241,6 +266,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   blockedDates: [],
   blockedRanges: [],
   appointments: [],
+  auditLog: [],
   loading: false,
   ready: false,
   loadError: null,
@@ -600,5 +626,16 @@ export const useAppStore = create<AppState>()((set, get) => ({
       };
     });
     return { ok: true };
+  },
+
+  fetchAuditLog: async () => {
+    const { data, error } = await supabase
+      .from("audit_log")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (!error) {
+      set({ auditLog: (data ?? []).map(mapAuditLogRow) });
+    }
   },
 }));
