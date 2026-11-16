@@ -21,7 +21,7 @@ jobs:
       - name: Instala a CLI do Supabase
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 3.1.0
 
       - name: Publica a função create-professional-login
         run: supabase functions deploy create-professional-login --project-ref "$SUPABASE_PROJECT_REF" --yes
