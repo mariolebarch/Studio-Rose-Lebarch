@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Lock, Mail, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
+import { TurnstileWidget } from "../components/TurnstileWidget";
 
 export function Login() {
   const navigate = useNavigate();
@@ -11,13 +12,21 @@ export function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!captchaToken) {
+      setError("Confirme a verificação de segurança antes de continuar.");
+      return;
+    }
     setError("");
     setLoading(true);
-    const result = await login(email.trim(), password);
+    const result = await login(email.trim(), password, captchaToken);
     setLoading(false);
+    setCaptchaToken(null);
+    setTurnstileResetKey((k) => k + 1);
     if (result.ok) {
       navigate("/admin");
     } else if (result.error && !result.error.toLowerCase().includes("invalid login credentials")) {
@@ -87,11 +96,13 @@ export function Login() {
             </div>
           </div>
 
+          <TurnstileWidget onToken={setCaptchaToken} resetKey={turnstileResetKey} />
+
           {error && <p className="text-xs text-red-600">{error}</p>}
 
           <button
             type="submit"
-            disabled={loading || !password || !email}
+            disabled={loading || !password || !email || !captchaToken}
             className="w-full rounded-full bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-semibold py-2.5 text-sm transition-colors"
           >
             {loading ? "Entrando..." : "Entrar"}

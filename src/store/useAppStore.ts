@@ -68,7 +68,7 @@ interface AppState {
   init: () => Promise<void>;
   reloadData: () => Promise<void>;
 
-  login: (email: string, password: string) => Promise<ActionResult>;
+  login: (email: string, password: string, captchaToken?: string) => Promise<ActionResult>;
   logout: () => Promise<void>;
   changePassword: (newPassword: string) => Promise<ActionResult>;
 
@@ -298,8 +298,12 @@ export const useAppStore = create<AppState>()((set, get) => ({
     set({ loading: false });
   },
 
-  login: async (email, password) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+  login: async (email, password, captchaToken) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+      options: captchaToken ? { captchaToken } : undefined,
+    });
     if (error) return { ok: false, error: error.message };
 
     const prof = findProfessionalByEmail(get().professionals, email);
