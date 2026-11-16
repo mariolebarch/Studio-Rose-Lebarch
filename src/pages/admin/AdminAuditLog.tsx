@@ -72,9 +72,12 @@ function exportCsv(entries: AuditLogEntry[]) {
     entry.actorEmail ?? "Sistema",
     actionLabels[entry.action],
     entityLabels[entry.entityType] ?? entry.entityType,
-    summarize(entry).join(" | "),
+    summarize(entry).join(" / "),
   ]);
-  const csv = [header, ...rows].map((row) => row.map(csvField).join(",")).join("\r\n");
+  // O Excel em português usa ponto e vírgula como separador de colunas no
+  // CSV (a vírgula é o separador decimal) — usar vírgula faz tudo cair
+  // numa coluna só.
+  const csv = [header, ...rows].map((row) => row.map(csvField).join(";")).join("\r\n");
   const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
