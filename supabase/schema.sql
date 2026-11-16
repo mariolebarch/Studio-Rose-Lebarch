@@ -90,8 +90,20 @@ create table if not exists appointments (
   created_at timestamptz not null default now()
 );
 
+-- Registro de tentativas de login, usado pela Edge Function
+-- "secure-login" para bloquear temporariamente após várias tentativas
+-- incorretas seguidas. Só a função (chave de serviço) acessa esta
+-- tabela — nenhuma política de RLS é criada de propósito.
+create table if not exists login_attempts (
+  id uuid primary key default gen_random_uuid(),
+  email text not null,
+  success boolean not null,
+  created_at timestamptz not null default now()
+);
+
 create index if not exists appointments_date_idx on appointments (date);
 create index if not exists blocked_ranges_date_idx on blocked_ranges (date);
+create index if not exists login_attempts_email_created_idx on login_attempts (lower(email), created_at desc);
 
 -- ==========================================================
 -- Row Level Security
@@ -104,6 +116,7 @@ alter table blocked_dates enable row level security;
 alter table blocked_ranges enable row level security;
 alter table appointments enable row level security;
 alter table clients enable row level security;
+alter table login_attempts enable row level security;
 
 -- Leitura pública (o site precisa mostrar profissionais, serviços,
 -- horários e bloqueios para calcular a agenda disponível)

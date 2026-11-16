@@ -299,12 +299,27 @@ export const useAppStore = create<AppState>()((set, get) => ({
   },
 
   login: async (email, password, captchaToken) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-      options: captchaToken ? { captchaToken } : undefined,
+    const { data: fnData, error: fnError } = await supabase.functions.invoke("secure-login", {
+      body: { email, password, captchaToken },
     });
-    if (error) return { ok: false, error: error.message };
+    if (fnError || !fnData?.ok) {
+      let detail: string | undefined = fnData?.error;
+      if (!detail && fnError && "context" in fnError) {
+        try {
+          const errBody = await (fnError as { context: Response }).context.json();
+          detail = errBody?.error;
+        } catch {
+          // mantém o fallback abaixo se o corpo do erro não vier em JSON
+        }
+      }
+      return { ok: false, error: detail ?? fnError?.message ?? "Não foi possível entrar." };
+    }
+
+    const { error: sessionError } = await supabase.auth.setSession({
+      access_token: fnData.session.access_token,
+      refresh_token: fnData.session.refresh_token,
+    });
+    if (sessionError) return { ok: false, error: sessionError.message };
 
     const prof = findProfessionalByEmail(get().professionals, email);
     if (!prof) {
